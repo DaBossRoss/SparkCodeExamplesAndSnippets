@@ -1,0 +1,50 @@
+val logMap = log.map(line => (pattern.findFirstIn(line).get, line))
+
+--Simple example of using map to create a K,V pair for a plain text logfile. 
+--Example uses a regex stored at "pattern" as well as the .get to get the first pair (stored as an option datatype)
+--Second pair is whatever else is in the file. Example output being:
+
+res48: Array[(String, String)] = Array((2016-03-30,<W>2016-03-30 13:38:37.401 Initializing settings from C:/Program Files (x86)/Mumble/murmur.ini (basepath C:/Program Files (x86)/Mumble)))
+
+
+val logFil = log.filter(line => line.contains("connection") || line.contains("Authenticated") || line.contains("version")).map(line => (line.substring(3,26),line.substring(28,line.length())))
+
+--Alternate Snippet that splits the dataset up into a timestamp component and the rest using substrings
+--with a filter beforehand to get rid of the non user related data
+
+--Returns this (output as a JSON file for shiggles):
+{"_1":"2016-07-05 20:07:39.623","_2":" => <1:(-1)> New connection: 73.177.219.137:60867"}
+{"_1":"2016-07-05 20:07:39.795","_2":" => <1:(-1)> Client version 1.2.4 (Win: 1.2.4)"}
+{"_1":"2016-07-05 20:07:39.842","_2":" => <1:theSwede(7)> Authenticated"}
+
+
+:::Idea for Parsing murmur file:::
+Use regex pattern match to get timestamp, what looks like a stamp for user data (so they can be rolled up into one), username, ip address, and version number
+
+So ideally this:
+(First timestamp, username, version, ip address)
+(2016-07-05 20:07:39.623, theSwede(7), Win: 1.2.4, 73.177.219.137:60867)
+
+Probably could add a min time and max time for online as well
+
+Regex for timestamp: ([0-9]{4}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3})
+Regex for log id: ( => <\d+:) --(we will need just the \d in the end)
+Regex for ip address: (\d+\.\d+\.\d+\.\d+)
+Regex for user software version: (\(\w+\:\s\d+\.\d+\.\d+\)|\(\w+\:\s\w+\s\w*\s\d+\.\d+\.\d\))
+Regex for username: (\<\d+\:\w+\(\w*.*\)\>) --(we will need to trim the username to remove the tag around it)
+
+--Not sexy but here are the core code snippets for a later application to parse these logs
+-------------------------------------------------------------------------------------------------------------------
+val logMap = log.filter(line => line.contains("New connection") || line.contains("Connection closed") || line.contains("Authenticated") || line.contains("version")).map{line => (datePtrn.findFirstIn(line).getOrElse(null),logIDPtrn.findFirstIn(line).getOrElse(null),usernamePtrn.findFirstIn(line).getOrElse(null),versionPtrn.findFirstIn(line).getOrElse(null),ipAddressPtrn.findFirstIn(line).getOrElse(null),timestampPtrn.findFirstIn(line).getOrElse("""N/A"""))}
+
+val newNames = Seq("date","logID","username","version","ipAddr","timestamp")
+val logRenamed = logMap.toDF(newNames: _*)
+
+val logGrouped = logRenamed.groupBy($"date",$"logID").agg(max($"username"),max($"version"),max($"ipAddr"),min($"timestamp"),max($"timestamp"))
+
+val newNames2 = Seq("date","logID","username","version","ipAddr","logOnTime","logOffTime")
+val logGroupedRenamed = logGrouped.toDF(newNames2: _*)
+
+val logFinal = logGroupedRenamed.sort($"date",$"logID")
+
+

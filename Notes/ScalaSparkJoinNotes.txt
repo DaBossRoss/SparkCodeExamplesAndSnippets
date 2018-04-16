@@ -1,0 +1,15 @@
+Join Syntax:
+
+1) Basic
+
+people.join(employees, "name")
+
+2) Columns that don't match name or that require advanced conditions:
+
+people.join(employees, people("name") === employees("salary"),"left_outer")
+
+"<=>" means equility test that is safe for nulls unlike "==="
+
+3) With any type of join specified you may need to wrap Seq() around the columns like so:
+
+people_tbl_df.join(people_json_df, Seq("name"),"full_outer")

@@ -1,0 +1,23 @@
+/* Simple loading of two json files, joining them and then outputting a file as a json */
+import org.apache.spark.sql.{SparkSession, SaveMode}
+/*import org.apache.spark.sql.SaveMode*/
+
+object Main {
+  def main(args: Array[String]) {
+
+    val spark = SparkSession.builder.appName("Simple Application").getOrCreate()
+
+    val filepath = "/opt/spark/examples/src/main/resources"
+
+    val peopledf = spark.read.json(filepath + "/people.json")
+    val employeesdf = spark.read.json(filepath + "/employees.json")
+
+    val employees_peopledf = employeesdf.join(peopledf.filter("age is not null"),"name")
+
+    employees_peopledf.write.mode(SaveMode.Overwrite).format("json").save(filepath + "/employees_age")
+
+    println("--------Check for output at: " + filepath + "--------------")
+
+    spark.stop()
+  }
+}

@@ -1,0 +1,34 @@
+import org.apache.spark.sql.{SparkSession, SaveMode, DataFrameReader, Row}
+
+object Main {
+
+  def main(args: Array[String]): Unit = {
+
+
+    val spark = SparkSession.builder().appName("DB Test").getOrCreate()
+
+    //Load core dataframes
+    val jsonPeople = spark.read.json("/opt/spark/examples/src/main/resources/people.json")
+
+    val dbPeople = spark.read.format("jdbc")
+        .option("url","jdbc:postgresql:sparkTest")
+        .option("driver","org.postgresql.Driver")
+        .option("user","postgres")
+        .option("dbtable", """read."People"""")
+        .load()
+    
+    //Union to merge the two datasets
+    val unionPeople = dbPeople.unionByName(jsonPeople)
+
+    //Write to json and back to db
+    unionPeople.write.mode(SaveMode.Overwrite).format("json").save("/home/ross/people")
+    unionPeople.write.mode(SaveMode.Overwrite).format("jdbc")
+      .option("url","jdbc:postgresql:sparkTest")
+      .option("driver","org.postgresql.Driver")
+      .option("user","postgres")
+      .option("dbtable", """load."People"""")
+      .save()
+
+  }
+  
+}

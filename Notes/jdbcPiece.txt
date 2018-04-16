@@ -1,0 +1,8 @@
+1) Sample of the way you can use JDBC to connect and read in a table
+val df = spark.read.format("jdbc").option("url", url).option("driver","org.postgresql.Driver").option("user", "postgres").option("dbtable","""read."People"""").load()
+
+--Note the """ """ around the dbtable option. That's to allow for it to be parsed as read."People". 
+--Postgres is a pain where schema and table need to be specified
+
+2) Example command that loads the postgres driver jar into spark so that it can be used in the terminal
+./spark-shell --jars /opt/spark/jars/postgresql-42.2.2.jar
